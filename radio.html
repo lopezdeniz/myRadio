@@ -1,0 +1,2312 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>Радио — FM / AM</title>
+    <link rel="icon" href="icon.png" type="image/png" />
+    <style>
+        /* ===== RESET & BASE ===== */
+        *,
+        *::before,
+        *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        html,
+        body {
+            height: 100%;
+            overflow: hidden;
+            font-family: -apple-system, 'Helvetica Neue', 'Segoe UI', Roboto, sans-serif;
+            background: #000;
+            color: #fff;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+
+        /* ===== CSS VARIABLES (Dynamic UI Scaling) ===== */
+        :root {
+            --ui-scale: 1;
+            --page-bg: #0c0c0d;
+            --card-bg: rgba(255, 255, 255, 0.08);
+            --card-radius: calc(20px * var(--ui-scale));
+            --font-size-xl: calc(26px * var(--ui-scale));
+            --font-size-lg: calc(20px * var(--ui-scale));
+            --font-size-md: calc(16px * var(--ui-scale));
+            --font-size-sm: calc(13px * var(--ui-scale));
+            --font-size-xs: calc(11px * var(--ui-scale));
+            --spacing-xl: calc(28px * var(--ui-scale));
+            --spacing-lg: calc(20px * var(--ui-scale));
+            --spacing-md: calc(14px * var(--ui-scale));
+            --spacing-sm: calc(8px * var(--ui-scale));
+            --spacing-xs: calc(4px * var(--ui-scale));
+            --btn-size: calc(56px * var(--ui-scale));
+            --btn-radius: calc(28px * var(--ui-scale));
+            --tab-height: calc(64px * var(--ui-scale));
+            --status-height: calc(48px * var(--ui-scale));
+            --transition: 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+            --blur: saturate(180%) blur(20px);
+            --safe-top: env(safe-area-inset-top, 0px);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+        }
+
+        /* ===== APP SHELL ===== */
+        #app {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: var(--page-bg);
+        }
+
+        /* ===== PAGES CONTAINER (horizontal swipe) ===== */
+        .pages {
+            display: flex;
+            width: 100%;
+            height: 100%;
+            transition: transform var(--transition);
+            will-change: transform;
+            touch-action: none;
+        }
+        .page {
+            flex: 0 0 100%;
+            height: 100%;
+            overflow: hidden;
+            position: relative;
+            padding: calc(var(--safe-top) + var(--status-height) + var(--spacing-sm)) var(--spacing-md) calc(var(--safe-bottom) + var(--tab-height) + var(--spacing-md)) var(--spacing-md);
+            display: flex;
+            flex-direction: column;
+            background: var(--page-bg);
+        }
+
+        /* ===== STATUS BAR (placeholder) ===== */
+        .status-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: var(--status-height);
+            padding: 0 var(--spacing-md);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: var(--font-size-xs);
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.5);
+            background: transparent;
+            z-index: 10;
+            pointer-events: none;
+        }
+        .status-bar .time {
+            font-variant-numeric: tabular-nums;
+        }
+        .status-bar .icons {
+            display: flex;
+            gap: 6px;
+            font-size: var(--font-size-xs);
+        }
+
+        /* ===== BOTTOM TABS ===== */
+        .tabs {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: calc(var(--tab-height) + var(--safe-bottom));
+            padding-bottom: var(--safe-bottom);
+            background: rgba(20, 20, 22, 0.92);
+            backdrop-filter: var(--blur);
+            -webkit-backdrop-filter: var(--blur);
+            border-top: 0.5px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            align-items: stretch;
+            z-index: 20;
+            justify-content: space-around;
+        }
+        .tab-btn {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.4);
+            font-size: var(--font-size-xs);
+            font-weight: 500;
+            cursor: pointer;
+            transition: color 0.2s;
+            padding: 0;
+            touch-action: manipulation;
+            position: relative;
+        }
+        .tab-btn .icon {
+            font-size: calc(22px * var(--ui-scale));
+            line-height: 1;
+            transition: transform 0.2s;
+        }
+        .tab-btn .label {
+            font-size: var(--font-size-xs);
+            letter-spacing: 0.3px;
+        }
+        .tab-btn.active {
+            color: #fff;
+        }
+        .tab-btn.active .icon {
+            transform: scale(1.05);
+        }
+        .tab-btn .badge {
+            position: absolute;
+            top: 2px;
+            right: 50%;
+            transform: translateX(calc(50% + 18px));
+            background: #ff3b30;
+            color: #fff;
+            font-size: 10px;
+            font-weight: 700;
+            min-width: 16px;
+            height: 16px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 5px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .tab-btn .badge.show {
+            opacity: 1;
+        }
+
+        /* ===== PAGE: PLAYER ===== */
+        #page-player {
+            padding-top: calc(var(--safe-top) + var(--status-height) + var(--spacing-sm));
+            padding-bottom: calc(var(--safe-bottom) + var(--tab-height) + var(--spacing-md));
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+        .player-art {
+            width: calc(180px * var(--ui-scale));
+            height: calc(180px * var(--ui-scale));
+            border-radius: 50%;
+            background: linear-gradient(145deg, #2c2c2e, #1c1c1e);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: calc(60px * var(--ui-scale));
+            margin-bottom: var(--spacing-lg);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+            transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+            flex-shrink: 0;
+            position: relative;
+            overflow: hidden;
+        }
+        .player-art img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
+        }
+        .player-art.playing {
+            animation: spin 12s linear infinite;
+        }
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        .player-art .placeholder {
+            font-size: calc(50px * var(--ui-scale));
+            opacity: 0.6;
+        }
+        .player-station {
+            font-size: var(--font-size-xl);
+            font-weight: 700;
+            letter-spacing: -0.3px;
+            margin-bottom: var(--spacing-xs);
+            line-height: 1.2;
+            color: #fff;
+            max-width: 90%;
+        }
+        .player-freq {
+            font-size: var(--font-size-sm);
+            color: rgba(255, 255, 255, 0.5);
+            font-weight: 500;
+            letter-spacing: 1px;
+            margin-bottom: var(--spacing-xs);
+        }
+        .player-band {
+            font-size: var(--font-size-xs);
+            color: rgba(255, 255, 255, 0.3);
+            margin-bottom: var(--spacing-sm);
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .player-lang-tag {
+            display: inline-block;
+            padding: 2px 12px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            font-size: var(--font-size-xs);
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: var(--spacing-md);
+            letter-spacing: 0.5px;
+        }
+        .player-controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: calc(20px * var(--ui-scale));
+            margin-top: var(--spacing-sm);
+        }
+        .ctrl-btn {
+            width: var(--btn-size);
+            height: var(--btn-size);
+            border-radius: 50%;
+            border: none;
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+            font-size: calc(24px * var(--ui-scale));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            touch-action: manipulation;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 0.5px solid rgba(255, 255, 255, 0.05);
+        }
+        .ctrl-btn:active {
+            transform: scale(0.92);
+            background: rgba(255, 255, 255, 0.15);
+        }
+        .ctrl-btn.primary {
+            width: calc(68px * var(--ui-scale));
+            height: calc(68px * var(--ui-scale));
+            font-size: calc(32px * var(--ui-scale));
+            background: #007aff;
+            border-color: #007aff;
+            box-shadow: 0 4px 20px rgba(0, 122, 255, 0.3);
+        }
+        .ctrl-btn.primary:active {
+            background: #0055b3;
+            box-shadow: 0 2px 12px rgba(0, 122, 255, 0.2);
+        }
+        .ctrl-btn.fav {
+            background: rgba(255, 255, 255, 0.06);
+            font-size: calc(22px * var(--ui-scale));
+        }
+        .ctrl-btn.fav.active {
+            color: #ff3b30;
+            background: rgba(255, 59, 48, 0.15);
+        }
+        .ctrl-btn.fav:active {
+            transform: scale(0.88);
+        }
+        .player-meta {
+            margin-top: var(--spacing-md);
+            font-size: var(--font-size-xs);
+            color: rgba(255, 255, 255, 0.3);
+            max-width: 80%;
+            line-height: 1.4;
+            min-height: calc(18px * var(--ui-scale));
+        }
+        .player-error {
+            color: #ff453a;
+            font-size: var(--font-size-xs);
+            margin-top: var(--spacing-sm);
+            min-height: calc(18px * var(--ui-scale));
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .player-error.show {
+            opacity: 1;
+        }
+
+        /* ===== PAGE: BROWSE ===== */
+        #page-browse {
+            padding-top: calc(var(--safe-top) + var(--status-height) + var(--spacing-sm));
+            padding-bottom: calc(var(--safe-bottom) + var(--tab-height) + var(--spacing-md));
+        }
+        .browse-header {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-sm);
+            margin-bottom: var(--spacing-md);
+            flex-shrink: 0;
+        }
+        .browse-search-wrap {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        .browse-search-wrap .icon {
+            position: absolute;
+            left: 12px;
+            font-size: var(--font-size-md);
+            opacity: 0.4;
+            pointer-events: none;
+        }
+        .browse-search {
+            width: 100%;
+            padding: var(--spacing-sm) var(--spacing-md) var(--spacing-sm) calc(36px * var(--ui-scale));
+            border-radius: calc(12px * var(--ui-scale));
+            border: 0.5px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.06);
+            color: #fff;
+            font-size: var(--font-size-md);
+            font-weight: 400;
+            outline: none;
+            transition: all 0.2s;
+            height: calc(40px * var(--ui-scale));
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        .browse-search::placeholder {
+            color: rgba(255, 255, 255, 0.3);
+            font-weight: 400;
+        }
+        .browse-search:focus {
+            border-color: rgba(0, 122, 255, 0.4);
+            background: rgba(255, 255, 255, 0.08);
+        }
+        .browse-filters {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-xs);
+            flex-shrink: 0;
+        }
+        .filter-row {
+            display: flex;
+            gap: var(--spacing-sm);
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            padding-bottom: var(--spacing-xs);
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+        .filter-row::-webkit-scrollbar {
+            display: none;
+        }
+        .filter-chip {
+            padding: 4px 14px;
+            border-radius: 14px;
+            border: 0.5px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.04);
+            color: rgba(255, 255, 255, 0.5);
+            font-size: var(--font-size-xs);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+            touch-action: manipulation;
+            flex-shrink: 0;
+            letter-spacing: 0.3px;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        .filter-chip.active {
+            background: #007aff;
+            color: #fff;
+            border-color: #007aff;
+        }
+        .filter-chip:active {
+            transform: scale(0.94);
+        }
+        .filter-chip.band-chip.active {
+            background: #ff9500;
+            border-color: #ff9500;
+        }
+        .browse-list {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            margin: 0 calc(-1 * var(--spacing-md));
+            padding: 0 var(--spacing-md);
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+        }
+        .browse-list::-webkit-scrollbar {
+            width: 3px;
+        }
+        .browse-list::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 3px;
+        }
+        .station-item {
+            display: flex;
+            align-items: center;
+            padding: var(--spacing-sm) var(--spacing-sm);
+            border-radius: calc(12px * var(--ui-scale));
+            transition: background 0.15s;
+            gap: var(--spacing-sm);
+            cursor: pointer;
+            touch-action: manipulation;
+            border-bottom: 0.5px solid rgba(255, 255, 255, 0.04);
+        }
+        .station-item:active {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        .station-item .fav-star {
+            font-size: var(--font-size-md);
+            opacity: 0.2;
+            transition: all 0.2s;
+            flex-shrink: 0;
+            width: calc(28px * var(--ui-scale));
+            text-align: center;
+            cursor: pointer;
+            touch-action: manipulation;
+            background: none;
+            border: none;
+            color: #fff;
+            padding: 0;
+        }
+        .station-item .fav-star.active {
+            opacity: 1;
+            color: #ff3b30;
+        }
+        .station-item .fav-star:active {
+            transform: scale(0.8);
+        }
+        .station-item .info {
+            flex: 1;
+            min-width: 0;
+        }
+        .station-item .name {
+            font-size: var(--font-size-md);
+            font-weight: 600;
+            color: #fff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .station-item .sub {
+            font-size: var(--font-size-xs);
+            color: rgba(255, 255, 255, 0.3);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-top: 1px;
+        }
+        .station-item .freq-band {
+            font-size: var(--font-size-xs);
+            color: rgba(255, 255, 255, 0.25);
+            margin-left: auto;
+            padding-left: var(--spacing-sm);
+            flex-shrink: 0;
+            text-align: right;
+            min-width: 60px;
+        }
+        .station-item .play-btn {
+            width: calc(32px * var(--ui-scale));
+            height: calc(32px * var(--ui-scale));
+            border-radius: 50%;
+            border: none;
+            background: rgba(255, 255, 255, 0.06);
+            color: #fff;
+            font-size: var(--font-size-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            touch-action: manipulation;
+            flex-shrink: 0;
+            transition: all 0.2s;
+        }
+        .station-item .play-btn:active {
+            transform: scale(0.88);
+            background: rgba(255, 255, 255, 0.12);
+        }
+        .station-item .play-btn.playing-now {
+            background: #007aff;
+            color: #fff;
+        }
+        .browse-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: rgba(255, 255, 255, 0.2);
+            font-size: var(--font-size-md);
+            gap: var(--spacing-sm);
+        }
+        .browse-empty .icon {
+            font-size: calc(40px * var(--ui-scale));
+            opacity: 0.4;
+        }
+
+        /* ===== PAGE: FAVORITES ===== */
+        #page-favs {
+            padding-top: calc(var(--safe-top) + var(--status-height) + var(--spacing-sm));
+            padding-bottom: calc(var(--safe-bottom) + var(--tab-height) + var(--spacing-md));
+        }
+        .favs-header {
+            font-size: var(--font-size-xl);
+            font-weight: 700;
+            margin-bottom: var(--spacing-md);
+            flex-shrink: 0;
+            letter-spacing: -0.3px;
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+        .favs-header .count {
+            font-size: var(--font-size-sm);
+            font-weight: 400;
+            color: rgba(255, 255, 255, 0.3);
+        }
+        .favs-list {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            margin: 0 calc(-1 * var(--spacing-md));
+            padding: 0 var(--spacing-md);
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+        }
+        .favs-list::-webkit-scrollbar {
+            width: 3px;
+        }
+        .favs-list::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 3px;
+        }
+        .favs-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: rgba(255, 255, 255, 0.2);
+            font-size: var(--font-size-md);
+            gap: var(--spacing-sm);
+        }
+        .favs-empty .icon {
+            font-size: calc(48px * var(--ui-scale));
+            opacity: 0.3;
+        }
+
+        /* ===== LOADING SPINNER ===== */
+        .spinner {
+            display: inline-block;
+            width: calc(20px * var(--ui-scale));
+            height: calc(20px * var(--ui-scale));
+            border: 2.5px solid rgba(255, 255, 255, 0.08);
+            border-top: 2.5px solid #007aff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* ===== PERMISSION OVERLAY ===== */
+        #perm-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 999;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: var(--blur);
+            -webkit-backdrop-filter: var(--blur);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: var(--spacing-xl);
+            text-align: center;
+            transition: opacity 0.5s ease;
+            opacity: 0;
+            pointer-events: none;
+        }
+        #perm-overlay.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        #perm-overlay .icon {
+            font-size: calc(56px * var(--ui-scale));
+            margin-bottom: var(--spacing-lg);
+        }
+        #perm-overlay h2 {
+            font-size: var(--font-size-xl);
+            font-weight: 700;
+            margin-bottom: var(--spacing-sm);
+        }
+        #perm-overlay p {
+            font-size: var(--font-size-md);
+            color: rgba(255, 255, 255, 0.5);
+            max-width: 320px;
+            line-height: 1.5;
+            margin-bottom: var(--spacing-lg);
+        }
+        #perm-overlay .btn {
+            padding: var(--spacing-sm) var(--spacing-xl);
+            border-radius: var(--btn-radius);
+            border: none;
+            background: #007aff;
+            color: #fff;
+            font-size: var(--font-size-md);
+            font-weight: 600;
+            cursor: pointer;
+            touch-action: manipulation;
+            transition: all 0.2s;
+            min-width: 200px;
+        }
+        #perm-overlay .btn:active {
+            transform: scale(0.94);
+            background: #0055b3;
+        }
+
+        /* ===== UTILITY ===== */
+        .hidden {
+            display: none !important;
+        }
+        .fade-in {
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(6px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* ===== RESPONSIVE TWEAKS ===== */
+        @media (max-width: 400px) {
+            :root {
+                --font-size-xl: 22px;
+                --font-size-lg: 17px;
+                --font-size-md: 14px;
+                --btn-size: 48px;
+            }
+            .player-art {
+                width: 140px;
+                height: 140px;
+            }
+            .ctrl-btn.primary {
+                width: 56px;
+                height: 56px;
+                font-size: 26px;
+            }
+        }
+        @media (min-width: 768px) {
+            :root {
+                --font-size-xl: 32px;
+                --font-size-lg: 24px;
+                --font-size-md: 18px;
+                --btn-size: 68px;
+            }
+            .player-art {
+                width: 220px;
+                height: 220px;
+            }
+            .ctrl-btn.primary {
+                width: 80px;
+                height: 80px;
+                font-size: 38px;
+            }
+            .page {
+                padding-left: var(--spacing-xl);
+                padding-right: var(--spacing-xl);
+            }
+        }
+
+        /* ===== SCROLLBAR STYLING ===== */
+        .browse-list,
+        .favs-list {
+            scroll-behavior: smooth;
+        }
+
+        /* ===== TOAST ===== */
+        .toast {
+            position: fixed;
+            bottom: calc(var(--tab-height) + var(--safe-bottom) + var(--spacing-lg));
+            left: 50%;
+            transform: translateX(-50%) translateY(80px);
+            background: rgba(30, 30, 32, 0.92);
+            backdrop-filter: var(--blur);
+            -webkit-backdrop-filter: var(--blur);
+            padding: var(--spacing-sm) var(--spacing-lg);
+            border-radius: calc(14px * var(--ui-scale));
+            font-size: var(--font-size-sm);
+            color: #fff;
+            font-weight: 500;
+            z-index: 100;
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+            pointer-events: none;
+            white-space: nowrap;
+            border: 0.5px solid rgba(255, 255, 255, 0.06);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* ===== REFRESH BUTTON ===== */
+        .refresh-btn {
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.4);
+            font-size: var(--font-size-md);
+            cursor: pointer;
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border-radius: 8px;
+            transition: all 0.2s;
+            touch-action: manipulation;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .refresh-btn:active {
+            transform: scale(0.92);
+            color: #fff;
+        }
+        .refresh-btn .icon {
+            font-size: var(--font-size-md);
+        }
+        .browse-header-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--spacing-sm);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ===== PERMISSION OVERLAY ===== -->
+    <div id="perm-overlay" class="show">
+        <div class="icon">📻</div>
+        <h2>Добро пожаловать</h2>
+        <p>Для работы радио необходимо разрешение на воспроизведение звука и уведомления.</p>
+        <button class="btn" id="perm-btn">Начать слушать</button>
+    </div>
+
+    <!-- ===== APP ===== -->
+    <div id="app">
+
+        <!-- Status Bar -->
+        <div class="status-bar" id="statusBar">
+            <span class="time" id="statusTime">--:--</span>
+            <span class="icons">🔋 📶</span>
+        </div>
+
+        <!-- Pages -->
+        <div class="pages" id="pages">
+
+            <!-- PLAYER PAGE -->
+            <div class="page" id="page-player" data-index="0">
+                <div class="player-art" id="playerArt">
+                    <span class="placeholder">📻</span>
+                </div>
+                <div class="player-station" id="playerStation">Выберите станцию</div>
+                <div class="player-freq" id="playerFreq">— — —</div>
+                <div class="player-band" id="playerBand">—</div>
+                <div class="player-lang-tag" id="playerLang">🌐</div>
+                <div class="player-controls">
+                    <button class="ctrl-btn" id="prevBtn" aria-label="Предыдущая">⏮</button>
+                    <button class="ctrl-btn primary" id="playBtn" aria-label="Воспроизвести">▶</button>
+                    <button class="ctrl-btn" id="nextBtn" aria-label="Следующая">⏭</button>
+                    <button class="ctrl-btn fav" id="favBtn" aria-label="В избранное">♡</button>
+                </div>
+                <div class="player-meta" id="playerMeta"></div>
+                <div class="player-error" id="playerError">Ошибка воспроизведения</div>
+            </div>
+
+            <!-- BROWSE PAGE -->
+            <div class="page" id="page-browse" data-index="1">
+                <div class="browse-header">
+                    <div class="browse-header-row">
+                        <div class="browse-search-wrap" style="flex:1;">
+                            <span class="icon">🔍</span>
+                            <input class="browse-search" id="searchInput" type="text" placeholder="Поиск станций, частот..." autocomplete="off" />
+                        </div>
+                        <button class="refresh-btn" id="refreshBtn" aria-label="Обновить список">
+                            <span class="icon">⟳</span>
+                        </button>
+                    </div>
+                    <div class="browse-filters">
+                        <div class="filter-row" id="countryFilters">
+                            <button class="filter-chip active" data-country="all">Все страны</button>
+                            <button class="filter-chip" data-country="USA">🇺🇸 США</button>
+                            <button class="filter-chip" data-country="Russia">🇷🇺 Россия</button>
+                            <button class="filter-chip" data-country="Spain">🇪🇸 Испания</button>
+                        </div>
+                        <div class="filter-row" id="bandFilters">
+                            <button class="filter-chip band-chip active" data-band="all">Все</button>
+                            <button class="filter-chip band-chip" data-band="FM">FM</button>
+                            <button class="filter-chip band-chip" data-band="AM">AM</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="browse-list" id="stationList">
+                    <div class="browse-empty">
+                        <span class="icon">📡</span>
+                        <span>Загрузка станций...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FAVORITES PAGE -->
+            <div class="page" id="page-favs" data-index="2">
+                <div class="favs-header">
+                    ⭐ Избранное
+                    <span class="count" id="favCount">0</span>
+                </div>
+                <div class="favs-list" id="favsList">
+                    <div class="favs-empty">
+                        <span class="icon">💔</span>
+                        <span>Нет избранных станций</span>
+                        <span style="font-size:var(--font-size-xs);opacity:0.5;">Добавьте станции через поиск</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Bottom Tabs -->
+        <div class="tabs" id="tabs">
+            <button class="tab-btn active" data-target="0">
+                <span class="icon">▶</span>
+                <span class="label">Плеер</span>
+            </button>
+            <button class="tab-btn" data-target="1">
+                <span class="icon">📡</span>
+                <span class="label">Станции</span>
+                <span class="badge" id="stationBadge">0</span>
+            </button>
+            <button class="tab-btn" data-target="2">
+                <span class="icon">⭐</span>
+                <span class="label">Избранное</span>
+                <span class="badge" id="favBadge">0</span>
+            </button>
+        </div>
+
+        <!-- Toast -->
+        <div class="toast" id="toast"></div>
+    </div>
+
+    <script>
+        /* ============================================================
+               RADIO APP — Extended station list + auto-refresh from multiple sources
+               ============================================================ */
+
+        (function() {
+            'use strict';
+
+            // ===== EXTENDED STATIONS DATABASE (Club, Dance, 94.7 WLS Chicago, etc.) =====
+            const BASE_STATIONS = [{
+                stationuuid: 'us1',
+                name: '94.7 WLS Chicago',
+                country: 'USA',
+                language: 'english',
+                frequency: 94.7,
+                band: 'FM',
+                url: 'https://playerservices.streamtheworld.com/api/livestream-redirect/WLSFMAAC_SC',
+                favicon: '',
+                genre: 'Classic Hits'
+            }, {
+                stationuuid: 'us2',
+                name: 'NPR',
+                country: 'USA',
+                language: 'english',
+                frequency: 88.5,
+                band: 'FM',
+                url: 'https://npr-ice.streamguys1.com/live.mp3',
+                favicon: '',
+                genre: 'News'
+            }, {
+                stationuuid: 'us3',
+                name: '1010 WINS',
+                country: 'USA',
+                language: 'english',
+                frequency: 1010,
+                band: 'AM',
+                url: 'http://cbsplayer.radio.com/player/1010-wins',
+                favicon: '',
+                genre: 'News'
+            }, {
+                stationuuid: 'us4',
+                name: 'KCRW 88.5 FM',
+                country: 'USA',
+                language: 'english',
+                frequency: 88.5,
+                band: 'FM',
+                url: 'https://kcrw.streamguys1.com/kcrw_192k_mp3',
+                favicon: '',
+                genre: 'Variety'
+            }, {
+                stationuuid: 'us5',
+                name: 'CBS News Radio',
+                country: 'USA',
+                language: 'english',
+                frequency: 880,
+                band: 'AM',
+                url: 'https://playerservices.streamtheworld.com/api/livestream-redirect/CBSNEWS.mp3',
+                favicon: '',
+                genre: 'News'
+            }, {
+                stationuuid: 'us6',
+                name: 'WNYC 93.9 FM',
+                country: 'USA',
+                language: 'english',
+                frequency: 93.9,
+                band: 'FM',
+                url: 'https://stream.wnyc.org/wnyc-fm',
+                favicon: '',
+                genre: 'Public'
+            }, {
+                stationuuid: 'us7',
+                name: 'KEXP 90.3 FM',
+                country: 'USA',
+                language: 'english',
+                frequency: 90.3,
+                band: 'FM',
+                url: 'https://kexp-mp3-128.streamguys1.com/kexp128.mp3',
+                favicon: '',
+                genre: 'Indie'
+            }, {
+                stationuuid: 'us8',
+                name: 'Radio Disney',
+                country: 'USA',
+                language: 'english',
+                frequency: 1110,
+                band: 'AM',
+                url: 'https://playerservices.streamtheworld.com/api/livestream-redirect/RADIO_DISNEY.mp3',
+                favicon: '',
+                genre: 'Children'
+            }, {
+                stationuuid: 'us9',
+                name: 'ElectricFM — EDM Dance',
+                country: 'USA',
+                language: 'english',
+                frequency: 0,
+                band: 'FM',
+                url: 'https://playerservices.streamtheworld.com/api/livestream-redirect/ELECTRICFM.mp3',
+                favicon: '',
+                genre: 'EDM / Dance'
+            }, {
+                stationuuid: 'us10',
+                name: 'Insomniac Radio',
+                country: 'USA',
+                language: 'english',
+                frequency: 0,
+                band: 'FM',
+                url: 'https://playerservices.streamtheworld.com/api/livestream-redirect/INSOMNIACRADIO.mp3',
+                favicon: '',
+                genre: 'EDM / Trance'
+            }, {
+                stationuuid: 'us11',
+                name: 'Dance Mix USA',
+                country: 'USA',
+                language: 'english',
+                frequency: 0,
+                band: 'FM',
+                url: 'https://playerservices.streamtheworld.com/api/livestream-redirect/DANCEMIXUSA.mp3',
+                favicon: '',
+                genre: 'Dance'
+            }, {
+                stationuuid: 'us12',
+                name: 'Club Zero Radio',
+                country: 'USA',
+                language: 'english',
+                frequency: 0,
+                band: 'FM',
+                url: 'https://playerservices.streamtheworld.com/api/livestream-redirect/CLUBZERO.mp3',
+                favicon: '',
+                genre: 'EBM / Industrial'
+            }, {
+                stationuuid: 'us13',
+                name: 'Nexus Radio Chicago',
+                country: 'USA',
+                language: 'english',
+                frequency: 0,
+                band: 'FM',
+                url: 'https://playerservices.streamtheworld.com/api/livestream-redirect/NEXUSRADIO.mp3',
+                favicon: '',
+                genre: 'EDM / Pop'
+            }, {
+                stationuuid: 'us14',
+                name: 'Chitown House Radio',
+                country: 'USA',
+                language: 'english',
+                frequency: 0,
+                band: 'FM',
+                url: 'https://playerservices.streamtheworld.com/api/livestream-redirect/CHITOWNHOUSE.mp3',
+                favicon: '',
+                genre: 'House'
+            }, {
+                stationuuid: 'us15',
+                name: 'DI PowerMixNetwork',
+                country: 'USA',
+                language: 'english',
+                frequency: 0,
+                band: 'FM',
+                url: 'https://playerservices.streamtheworld.com/api/livestream-redirect/POWERMIX.mp3',
+                favicon: '',
+                genre: 'House'
+            }, {
+                stationuuid: 'us16',
+                name: 'Deep Link Radio',
+                country: 'USA',
+                language: 'english',
+                frequency: 0,
+                band: 'FM',
+                url: 'https://playerservices.streamtheworld.com/api/livestream-redirect/DEEPLINK.mp3',
+                favicon: '',
+                genre: 'Deep House'
+            }, {
+                stationuuid: 'us17',
+                name: 'Dogglounge',
+                country: 'USA',
+                language: 'english',
+                frequency: 0,
+                band: 'FM',
+                url: 'https://playerservices.streamtheworld.com/api/livestream-redirect/DOGGLOUNGE.mp3',
+                favicon: '',
+                genre: 'Deep House'
+            }, {
+                stationuuid: 'us18',
+                name: 'Fusion Radio',
+                country: 'USA',
+                language: 'english',
+                frequency: 0,
+                band: 'FM',
+                url: 'https://playerservices.streamtheworld.com/api/livestream-redirect/FUSIONRADIO.mp3',
+                favicon: '',
+                genre: 'Club / Latin'
+            }, {
+                stationuuid: 'us19',
+                name: 'The Party FM',
+                country: 'USA',
+                language: 'english',
+                frequency: 0,
+                band: 'FM',
+                url: 'https://playerservices.streamtheworld.com/api/livestream-redirect/PARTYFM.mp3',
+                favicon: '',
+                genre: 'Dance / Pop'
+            }, {
+                stationuuid: 'us20',
+                name: 'Chilltrax',
+                country: 'USA',
+                language: 'english',
+                frequency: 0,
+                band: 'FM',
+                url: 'https://playerservices.streamtheworld.com/api/livestream-redirect/CHILLTRAX.mp3',
+                favicon: '',
+                genre: 'Chill / Lounge'
+            }, {
+                stationuuid: 'ru1',
+                name: 'Радио России',
+                country: 'Russia',
+                language: 'russian',
+                frequency: 66.3,
+                band: 'FM',
+                url: 'http://icecast.radiorus.ru:8000/radio',
+                favicon: '',
+                genre: 'News'
+            }, {
+                stationuuid: 'ru2',
+                name: 'Маяк',
+                country: 'Russia',
+                language: 'russian',
+                frequency: 103.4,
+                band: 'FM',
+                url: 'http://icecast.vgtrk.com/radio/mayak',
+                favicon: '',
+                genre: 'Talk'
+            }, {
+                stationuuid: 'ru3',
+                name: 'Европа Плюс',
+                country: 'Russia',
+                language: 'russian',
+                frequency: 106.2,
+                band: 'FM',
+                url: 'http://ep128.hostingradio.ru:8030/ep128',
+                favicon: '',
+                genre: 'Pop'
+            }, {
+                stationuuid: 'ru4',
+                name: 'Русское Радио',
+                country: 'Russia',
+                language: 'russian',
+                frequency: 105.7,
+                band: 'FM',
+                url: 'http://ru-radio.hostingradio.ru:8000/rr128',
+                favicon: '',
+                genre: 'Pop'
+            }, {
+                stationuuid: 'ru5',
+                name: 'Радио 7',
+                country: 'Russia',
+                language: 'russian',
+                frequency: 95.2,
+                band: 'FM',
+                url: 'http://radio7.stream.gcdn.co:8000/radio7_128',
+                favicon: '',
+                genre: 'Pop'
+            }, {
+                stationuuid: 'ru6',
+                name: 'Наше Радио',
+                country: 'Russia',
+                language: 'russian',
+                frequency: 101.7,
+                band: 'FM',
+                url: 'http://nashe.hostingradio.ru:8000/nashe',
+                favicon: '',
+                genre: 'Rock'
+            }, {
+                stationuuid: 'ru7',
+                name: 'Радио ENERGY',
+                country: 'Russia',
+                language: 'russian',
+                frequency: 104.2,
+                band: 'FM',
+                url: 'http://energy.hostingradio.ru:8000/energy128',
+                favicon: '',
+                genre: 'Dance'
+            }, {
+                stationuuid: 'ru8',
+                name: 'DFM',
+                country: 'Russia',
+                language: 'russian',
+                frequency: 101.2,
+                band: 'FM',
+                url: 'http://dfm.hostingradio.ru:8000/dfm128',
+                favicon: '',
+                genre: 'Dance'
+            }, {
+                stationuuid: 'ru9',
+                name: 'Радио Рекорд',
+                country: 'Russia',
+                language: 'russian',
+                frequency: 106.3,
+                band: 'FM',
+                url: 'http://record.hostingradio.ru:8000/record128',
+                favicon: '',
+                genre: 'Dance'
+            }, {
+                stationuuid: 'es1',
+                name: 'Cadena SER',
+                country: 'Spain',
+                language: 'spanish',
+                frequency: 100.4,
+                band: 'FM',
+                url: 'https://playerservices.streamtheworld.com/api/livestream-redirect/SER_TuneIn.mp3',
+                favicon: '',
+                genre: 'Talk'
+            }, {
+                stationuuid: 'es2',
+                name: 'RNE Radio Nacional',
+                country: 'Spain',
+                language: 'spanish',
+                frequency: 98.2,
+                band: 'FM',
+                url: 'https://rtve-live.akamaized.net/radio/radio1/radio1.m3u8',
+                favicon: '',
+                genre: 'News'
+            }, {
+                stationuuid: 'es3',
+                name: 'LOS 40 Principales',
+                country: 'Spain',
+                language: 'spanish',
+                frequency: 88.9,
+                band: 'FM',
+                url: 'https://playerservices.streamtheworld.com/api/livestream-redirect/LOS40_TuneIn.mp3',
+                favicon: '',
+                genre: 'Pop'
+            }, {
+                stationuuid: 'es4',
+                name: 'Onda Cero',
+                country: 'Spain',
+                language: 'spanish',
+                frequency: 100.0,
+                band: 'FM',
+                url: 'https://livefastly-webs.ondacero.es/ondacero/stream',
+                favicon: '',
+                genre: 'Talk'
+            }, {
+                stationuuid: 'es5',
+                name: 'COPE',
+                country: 'Spain',
+                language: 'spanish',
+                frequency: 99.1,
+                band: 'FM',
+                url: 'https://wecast-b01-01.flumotion.com/copesedes/cope.mp3',
+                favicon: '',
+                genre: 'Talk'
+            }, {
+                stationuuid: 'es6',
+                name: 'Radio 3 (RNE)',
+                country: 'Spain',
+                language: 'spanish',
+                frequency: 94.4,
+                band: 'FM',
+                url: 'https://rtve-live.akamaized.net/radio/radio3/radio3.m3u8',
+                favicon: '',
+                genre: 'Alternative'
+            }, {
+                stationuuid: 'es7',
+                name: 'Rock FM',
+                country: 'Spain',
+                language: 'spanish',
+                frequency: 99.5,
+                band: 'FM',
+                url: 'https://playerservices.streamtheworld.com/api/livestream-redirect/ROCKFM.mp3',
+                favicon: '',
+                genre: 'Rock'
+            }, {
+                stationuuid: 'es8',
+                name: 'Máxima FM',
+                country: 'Spain',
+                language: 'spanish',
+                frequency: 94.7,
+                band: 'FM',
+                url: 'https://playerservices.streamtheworld.com/api/livestream-redirect/MAXIMAFM.mp3',
+                favicon: '',
+                genre: 'Dance'
+            }, {
+                stationuuid: 'es9',
+                name: 'Kiss FM Spain',
+                country: 'Spain',
+                language: 'spanish',
+                frequency: 96.4,
+                band: 'FM',
+                url: 'https://playerservices.streamtheworld.com/api/livestream-redirect/KISSFM.mp3',
+                favicon: '',
+                genre: 'Pop'
+            }];
+
+            // ===== STATE =====
+            let state = {
+                currentPage: 0,
+                currentStation: null,
+                isPlaying: false,
+                isFavorite: false,
+                favorites: [],
+                stations: [],
+                allStations: [],
+                currentCountry: 'all',
+                currentBand: 'all',
+                searchQuery: '',
+                isLoading: false,
+                audioElement: null,
+                errorCount: 0,
+                permissionsGranted: false,
+                refreshInProgress: false,
+            };
+
+            // ===== DOM REFS =====
+            const $ = (s) => document.querySelector(s);
+            const $$ = (s) => document.querySelectorAll(s);
+
+            const pages = document.getElementById('pages');
+            const tabs = $$('.tab-btn');
+            const tabBadges = {
+                station: document.getElementById('stationBadge'),
+                fav: document.getElementById('favBadge'),
+            };
+            const statusTime = document.getElementById('statusTime');
+            const playerArt = document.getElementById('playerArt');
+            const playerStation = document.getElementById('playerStation');
+            const playerFreq = document.getElementById('playerFreq');
+            const playerBand = document.getElementById('playerBand');
+            const playerLang = document.getElementById('playerLang');
+            const playerMeta = document.getElementById('playerMeta');
+            const playerError = document.getElementById('playerError');
+            const playBtn = document.getElementById('playBtn');
+            const prevBtn = document.getElementById('prevBtn');
+            const nextBtn = document.getElementById('nextBtn');
+            const favBtn = document.getElementById('favBtn');
+            const searchInput = document.getElementById('searchInput');
+            const countryFilters = document.getElementById('countryFilters');
+            const bandFilters = document.getElementById('bandFilters');
+            const stationList = document.getElementById('stationList');
+            const favsList = document.getElementById('favsList');
+            const favCount = document.getElementById('favCount');
+            const toast = document.getElementById('toast');
+            const permOverlay = document.getElementById('perm-overlay');
+            const permBtn = document.getElementById('perm-btn');
+            const refreshBtn = document.getElementById('refreshBtn');
+
+            // ===== DYNAMIC UI SCALING =====
+            function adaptLayout() {
+                const root = document.documentElement;
+                const containerHeight = window.innerHeight;
+                const pagesEl = document.querySelectorAll('.page');
+                let maxHeight = 0;
+                pagesEl.forEach(p => {
+                    const h = p.scrollHeight;
+                    if (h > maxHeight) maxHeight = h;
+                });
+
+                let scale = 1;
+                if (maxHeight > containerHeight) {
+                    const ratio = containerHeight / maxHeight;
+                    scale = Math.max(0.85, Math.min(1, ratio));
+                }
+                root.style.setProperty('--ui-scale', scale);
+
+                const stillOverflows = maxHeight * scale > containerHeight;
+                pagesEl.forEach(p => {
+                    if (stillOverflows) {
+                        p.style.overflowY = 'auto';
+                        p.style.overflowX = 'hidden';
+                        p.style.webkitOverflowScrolling = 'touch';
+                    } else {
+                        p.style.overflowY = 'hidden';
+                        p.style.overflowX = 'hidden';
+                    }
+                });
+            }
+
+            // ===== TOAST =====
+            let toastTimer = null;
+
+            function showToast(msg, duration = 2000) {
+                toast.textContent = msg;
+                toast.classList.add('show');
+                clearTimeout(toastTimer);
+                toastTimer = setTimeout(() => {
+                    toast.classList.remove('show');
+                }, duration);
+            }
+
+            // ===== STATUS BAR CLOCK =====
+            function updateClock() {
+                const now = new Date();
+                const h = String(now.getHours()).padStart(2, '0');
+                const m = String(now.getMinutes()).padStart(2, '0');
+                statusTime.textContent = h + ':' + m;
+            }
+            setInterval(updateClock, 10000);
+            updateClock();
+
+            // ===== FAVORITES STORAGE =====
+            function loadFavorites() {
+                try {
+                    const raw = localStorage.getItem('radio_favorites');
+                    if (raw) {
+                        state.favorites = JSON.parse(raw);
+                        if (!Array.isArray(state.favorites)) state.favorites = [];
+                    } else {
+                        state.favorites = [];
+                    }
+                } catch (_) { state.favorites = []; }
+                const seen = new Set();
+                state.favorites = state.favorites.filter(s => {
+                    const key = s.stationuuid || s.id || s.name;
+                    if (seen.has(key)) return false;
+                    if (key) seen.add(key);
+                    return true;
+                });
+                saveFavorites();
+            }
+
+            function saveFavorites() {
+                try {
+                    localStorage.setItem('radio_favorites', JSON.stringify(state.favorites));
+                } catch (_) { /* ignore */ }
+                updateFavBadges();
+                renderFavorites();
+            }
+
+            function isFav(station) {
+                const id = station.stationuuid || station.id || station.name;
+                return state.favorites.some(s => (s.stationuuid || s.id || s.name) === id);
+            }
+
+            function toggleFav(station) {
+                const id = station.stationuuid || station.id || station.name;
+                const idx = state.favorites.findIndex(s => (s.stationuuid || s.id || s.name) === id);
+                if (idx >= 0) {
+                    state.favorites.splice(idx, 1);
+                    showToast('Удалено из избранного');
+                } else {
+                    const copy = { ...station };
+                    state.favorites.push(copy);
+                    showToast('Добавлено в избранное ♡');
+                }
+                saveFavorites();
+                updateFavButton();
+                renderStationList();
+                renderFavorites();
+                updateFavBadges();
+                return idx < 0;
+            }
+
+            function updateFavBadges() {
+                const count = state.favorites.length;
+                tabBadges.fav.textContent = count;
+                tabBadges.fav.classList.toggle('show', count > 0);
+                favCount.textContent = count;
+            }
+
+            function updateFavButton() {
+                if (state.currentStation && isFav(state.currentStation)) {
+                    favBtn.textContent = '♥';
+                    favBtn.classList.add('active');
+                    state.isFavorite = true;
+                } else {
+                    favBtn.textContent = '♡';
+                    favBtn.classList.remove('active');
+                    state.isFavorite = false;
+                }
+            }
+
+            // ===== AUDIO ENGINE =====
+            function initAudio() {
+                if (state.audioElement) return;
+                const audio = new Audio();
+                audio.crossOrigin = 'anonymous';
+                audio.preload = 'none';
+                audio.autoplay = false;
+
+                audio.addEventListener('playing', () => {
+                    state.isPlaying = true;
+                    updatePlayButton();
+                    playerArt.classList.add('playing');
+                    playerError.classList.remove('show');
+                    state.errorCount = 0;
+                });
+
+                audio.addEventListener('pause', () => {
+                    state.isPlaying = false;
+                    updatePlayButton();
+                    playerArt.classList.remove('playing');
+                });
+
+                audio.addEventListener('error', (e) => {
+                    console.warn('Audio error', e);
+                    state.errorCount++;
+                    if (state.errorCount > 3) {
+                        playerError.textContent = 'Не удаётся воспроизвести поток';
+                        playerError.classList.add('show');
+                        state.isPlaying = false;
+                        updatePlayButton();
+                        playerArt.classList.remove('playing');
+                    } else {
+                        setTimeout(() => {
+                            if (state.currentStation && state.isPlaying) {
+                                playStation(state.currentStation, true);
+                            }
+                        }, 1500);
+                    }
+                });
+
+                audio.addEventListener('stalled', () => {
+                    if (state.isPlaying) {
+                        setTimeout(() => {
+                            if (state.isPlaying && state.currentStation) {
+                                audio.load();
+                                audio.play().catch(() => {});
+                            }
+                        }, 2000);
+                    }
+                });
+
+                state.audioElement = audio;
+            }
+
+            function playStation(station, retry = false) {
+                if (!station) return;
+                if (!state.audioElement) initAudio();
+
+                const audio = state.audioElement;
+
+                if (state.currentStation && state.currentStation.stationuuid === station.stationuuid && state.isPlaying) {
+                    audio.pause();
+                    return;
+                }
+
+                if (state.currentStation && state.currentStation.stationuuid === station.stationuuid && !state.isPlaying) {
+                    audio.play().catch(() => {});
+                    return;
+                }
+
+                state.currentStation = station;
+                state.errorCount = 0;
+                playerError.classList.remove('show');
+
+                playerStation.textContent = station.name || 'Без названия';
+                const freq = station.frequency || 0;
+                const band = station.band || 'FM';
+                playerFreq.textContent = freq ? freq.toFixed(1) + ' MHz' : '— — —';
+                playerBand.textContent = band;
+
+                const langMap = {
+                    russian: '🇷🇺 Русский',
+                    english: '🇬🇧 English',
+                    spanish: '🇪🇸 Español'
+                };
+                const lang = (station.language || '').toLowerCase();
+                let langDisplay = '🌐 Разное';
+                if (lang.includes('russian')) langDisplay = langMap.russian;
+                else if (lang.includes('english')) langDisplay = langMap.english;
+                else if (lang.includes('spanish')) langDisplay = langMap.spanish;
+                playerLang.textContent = langDisplay;
+
+                const metaParts = [];
+                if (station.country) metaParts.push(station.country);
+                if (station.genre) metaParts.push(station.genre);
+                playerMeta.textContent = metaParts.join(' · ') || '';
+
+                if (station.favicon && station.favicon.startsWith('http')) {
+                    const img = document.createElement('img');
+                    img.src = station.favicon;
+                    img.alt = station.name;
+                    img.onerror = () => { playerArt.innerHTML = '<span class="placeholder">📻</span>'; };
+                    img.onload = () => {
+                        playerArt.innerHTML = '';
+                        playerArt.appendChild(img);
+                    };
+                    setTimeout(() => {
+                        if (!playerArt.querySelector('img')) {
+                            playerArt.innerHTML = '<span class="placeholder">📻</span>';
+                        }
+                    }, 3000);
+                } else {
+                    playerArt.innerHTML = '<span class="placeholder">📻</span>';
+                }
+
+                updateFavButton();
+
+                let streamUrl = station.url || '';
+                if (!streamUrl) {
+                    playerError.textContent = 'Ссылка на поток отсутствует';
+                    playerError.classList.add('show');
+                    return;
+                }
+
+                if (streamUrl.startsWith('http://')) {
+                    streamUrl = streamUrl.replace('http://', 'https://');
+                }
+
+                audio.src = streamUrl;
+                audio.load();
+                audio.play().catch((err) => {
+                    console.warn('Play error:', err);
+                    if (streamUrl.startsWith('https://')) {
+                        const httpUrl = streamUrl.replace('https://', 'http://');
+                        audio.src = httpUrl;
+                        audio.load();
+                        audio.play().catch((e2) => {
+                            console.warn('HTTP fallback failed:', e2);
+                            playerError.textContent = 'Не удалось подключиться к потоку';
+                            playerError.classList.add('show');
+                        });
+                    } else {
+                        playerError.textContent = 'Ошибка воспроизведения';
+                        playerError.classList.add('show');
+                    }
+                });
+
+                try {
+                    let recents = JSON.parse(localStorage.getItem('radio_recent') || '[]');
+                    recents = recents.filter(s => s.stationuuid !== station.stationuuid);
+                    recents.unshift(station);
+                    if (recents.length > 20) recents = recents.slice(0, 20);
+                    localStorage.setItem('radio_recent', JSON.stringify(recents));
+                } catch (_) { /* ignore */ }
+            }
+
+            function togglePlay() {
+                if (!state.audioElement) {
+                    if (state.currentStation) {
+                        playStation(state.currentStation);
+                    } else {
+                        const list = state.stations;
+                        if (list.length > 0) {
+                            playStation(list[0]);
+                        } else {
+                            showToast('Нет доступных станций');
+                        }
+                    }
+                    return;
+                }
+
+                if (state.isPlaying) {
+                    state.audioElement.pause();
+                } else {
+                    if (state.currentStation) {
+                        state.audioElement.play().catch(() => {
+                            if (state.currentStation) {
+                                playStation(state.currentStation, true);
+                            }
+                        });
+                    } else {
+                        const list = state.stations;
+                        if (list.length > 0) {
+                            playStation(list[0]);
+                        } else {
+                            showToast('Нет доступных станций');
+                        }
+                    }
+                }
+            }
+
+            function updatePlayButton() {
+                playBtn.textContent = state.isPlaying ? '⏸' : '▶';
+                if (state.isPlaying) {
+                    playBtn.classList.add('playing');
+                } else {
+                    playBtn.classList.remove('playing');
+                }
+            }
+
+            function nextStation() {
+                const list = state.stations;
+                if (list.length === 0) return;
+                const idx = list.findIndex(s => s.stationuuid === (state.currentStation ? state.currentStation
+                    .stationuuid : null));
+                const nextIdx = (idx + 1) % list.length;
+                playStation(list[nextIdx]);
+            }
+
+            function prevStation() {
+                const list = state.stations;
+                if (list.length === 0) return;
+                const idx = list.findIndex(s => s.stationuuid === (state.currentStation ? state.currentStation
+                    .stationuuid : null));
+                const prevIdx = (idx - 1 + list.length) % list.length;
+                playStation(list[prevIdx]);
+            }
+
+            // ===== FETCH FROM MULTIPLE SOURCES =====
+            async function fetchStationsFromSources() {
+                state.isLoading = true;
+                state.refreshInProgress = true;
+                refreshBtn.style.opacity = '0.5';
+                refreshBtn.style.pointerEvents = 'none';
+
+                stationList.innerHTML =
+                    '<div class="browse-empty"><span class="icon">📡</span><span>Обновление списка станций...</span></div>';
+
+                let combined = [...BASE_STATIONS];
+                const seen = new Set();
+                combined.forEach(s => {
+                    const key = s.stationuuid || s.name;
+                    if (key) seen.add(key);
+                });
+
+                // Source 1: Radio Browser API (top stations by clickcount)
+                try {
+                    const resp = await fetch(
+                        'https://de1.api.radio-browser.info/json/stations/topclick/50?hidebroken=true'
+                    );
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        if (Array.isArray(data)) {
+                            data.forEach(s => {
+                                const key = s.stationuuid || s.name;
+                                if (!key || seen.has(key)) return;
+                                // filter for USA, Russia, Spain or club/dance
+                                const country = (s.country || '').toLowerCase();
+                                const lang = (s.language || '').toLowerCase();
+                                const tags = (s.tags || '').toLowerCase();
+                                const isRelevant = country.includes('united states') ||
+                                    country.includes('russia') ||
+                                    country.includes('spain') ||
+                                    tags.includes('club') ||
+                                    tags.includes('dance') ||
+                                    tags.includes('house') ||
+                                    tags.includes('edm') ||
+                                    tags.includes('electronic');
+                                if (!isRelevant) return;
+                                // map to our format
+                                const mapped = {
+                                    stationuuid: s.stationuuid || 'api_' + Date.now() + '_' + Math.random(),
+                                    name: s.name || 'Unknown',
+                                    country: s.country || 'USA',
+                                    language: s.language || 'english',
+                                    frequency: s.frequency || 0,
+                                    band: (s.frequency && s.frequency < 1000) ? 'FM' : 'AM',
+                                    url: s.url_resolved || s.url || '',
+                                    favicon: s.favicon || '',
+                                    genre: s.tags || s.country || ''
+                                };
+                                if (mapped.url) {
+                                    combined.push(mapped);
+                                    seen.add(key);
+                                }
+                            });
+                        }
+                    }
+                } catch (e) { console.warn('Radio Browser API error:', e); }
+
+                // Source 2: AllRadio.net (club/dance stations) — we use known streams
+                const extraClub = [{
+                    name: 'Club FM Radio',
+                    country: 'USA',
+                    language: 'english',
+                    frequency: 0,
+                    band: 'FM',
+                    url: 'https://playerservices.streamtheworld.com/api/livestream-redirect/CLUBFM.mp3',
+                    genre: 'Club'
+                }, {
+                    name: 'House Nation Radio',
+                    country: 'USA',
+                    language: 'english',
+                    frequency: 0,
+                    band: 'FM',
+                    url: 'https://playerservices.streamtheworld.com/api/livestream-redirect/HOUSENATION.mp3',
+                    genre: 'House'
+                }, {
+                    name: 'EDM Radio Global',
+                    country: 'USA',
+                    language: 'english',
+                    frequency: 0,
+                    band: 'FM',
+                    url: 'https://playerservices.streamtheworld.com/api/livestream-redirect/EDMGLOBAL.mp3',
+                    genre: 'EDM'
+                }, {
+                    name: 'Techno Station',
+                    country: 'USA',
+                    language: 'english',
+                    frequency: 0,
+                    band: 'FM',
+                    url: 'https://playerservices.streamtheworld.com/api/livestream-redirect/TECHNOSTATION.mp3',
+                    genre: 'Techno'
+                }, {
+                    name: 'Trance Energy',
+                    country: 'USA',
+                    language: 'english',
+                    frequency: 0,
+                    band: 'FM',
+                    url: 'https://playerservices.streamtheworld.com/api/livestream-redirect/TRANCEENERGY.mp3',
+                    genre: 'Trance'
+                }];
+
+                extraClub.forEach(s => {
+                    const key = s.name;
+                    if (seen.has(key)) return;
+                    const mapped = {
+                        stationuuid: 'club_' + Date.now() + '_' + Math.random(),
+                        name: s.name,
+                        country: s.country,
+                        language: s.language,
+                        frequency: s.frequency,
+                        band: s.band,
+                        url: s.url,
+                        favicon: '',
+                        genre: s.genre
+                    };
+                    if (mapped.url) {
+                        combined.push(mapped);
+                        seen.add(key);
+                    }
+                });
+
+                // Source 3: Chicago-area stations (more local)
+                const chicagoStations = [{
+                    name: '93.9 LITE FM Chicago',
+                    country: 'USA',
+                    language: 'english',
+                    frequency: 93.9,
+                    band: 'FM',
+                    url: 'https://playerservices.streamtheworld.com/api/livestream-redirect/WLITFM.mp3',
+                    genre: 'Adult Contemporary'
+                }, {
+                    name: '103.5 KISS FM Chicago',
+                    country: 'USA',
+                    language: 'english',
+                    frequency: 103.5,
+                    band: 'FM',
+                    url: 'https://playerservices.streamtheworld.com/api/livestream-redirect/WKSCFM.mp3',
+                    genre: 'Top 40'
+                }, {
+                    name: 'V103 Chicago',
+                    country: 'USA',
+                    language: 'english',
+                    frequency: 102.7,
+                    band: 'FM',
+                    url: 'https://playerservices.streamtheworld.com/api/livestream-redirect/WVAZFM.mp3',
+                    genre: 'Urban'
+                }, {
+                    name: '107.5 WGCI Chicago',
+                    country: 'USA',
+                    language: 'english',
+                    frequency: 107.5,
+                    band: 'FM',
+                    url: 'https://playerservices.streamtheworld.com/api/livestream-redirect/WGCIFM.mp3',
+                    genre: 'Hip Hop'
+                }];
+
+                chicagoStations.forEach(s => {
+                    const key = s.name;
+                    if (seen.has(key)) return;
+                    const mapped = {
+                        stationuuid: 'chi_' + Date.now() + '_' + Math.random(),
+                        name: s.name,
+                        country: s.country,
+                        language: s.language,
+                        frequency: s.frequency,
+                        band: s.band,
+                        url: s.url,
+                        favicon: '',
+                        genre: s.genre
+                    };
+                    if (mapped.url) {
+                        combined.push(mapped);
+                        seen.add(key);
+                    }
+                });
+
+                // dedupe by url as well
+                const urlSet = new Set();
+                combined = combined.filter(s => {
+                    const u = s.url || '';
+                    if (urlSet.has(u)) return false;
+                    if (u) urlSet.add(u);
+                    return true;
+                });
+
+                state.allStations = combined;
+                applyFiltersAndSearch();
+
+                state.isLoading = false;
+                state.refreshInProgress = false;
+                refreshBtn.style.opacity = '1';
+                refreshBtn.style.pointerEvents = 'auto';
+                showToast(`Обновлено: ${state.allStations.length} станций`, 1500);
+            }
+
+            // ===== FILTERING AND RENDERING =====
+            function applyFiltersAndSearch() {
+                const query = state.searchQuery.toLowerCase().trim();
+                const country = state.currentCountry;
+                const band = state.currentBand;
+
+                let filtered = state.allStations;
+
+                if (country !== 'all') {
+                    filtered = filtered.filter(s => s.country === country);
+                }
+                if (band !== 'all') {
+                    filtered = filtered.filter(s => s.band === band);
+                }
+                if (query) {
+                    filtered = filtered.filter(s =>
+                        (s.name || '').toLowerCase().includes(query) ||
+                        (s.country || '').toLowerCase().includes(query) ||
+                        (s.language || '').toLowerCase().includes(query) ||
+                        (s.genre || '').toLowerCase().includes(query) ||
+                        (s.frequency && s.frequency.toString().includes(query)) ||
+                        (s.band && s.band.toLowerCase().includes(query))
+                    );
+                }
+
+                // sort by popularity (name)
+                filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+                state.stations = filtered;
+                renderStationList();
+
+                tabBadges.station.textContent = filtered.length;
+                tabBadges.station.classList.toggle('show', filtered.length > 0);
+
+                if (state.currentStation && !filtered.some(s => s.stationuuid === state.currentStation.stationuuid)) {
+                    // keep current station playing even if not in list
+                }
+            }
+
+            function renderStationList() {
+                const list = state.stations;
+                if (list.length === 0) {
+                    stationList.innerHTML =
+                        `<div class="browse-empty"><span class="icon">📭</span><span>Станций не найдено</span><span style="font-size:var(--font-size-xs);opacity:0.5;">Попробуйте изменить фильтры</span></div>`;
+                    return;
+                }
+
+                let html = '';
+                const currentId = state.currentStation ? state.currentStation.stationuuid : null;
+                const isPlayingNow = state.isPlaying;
+
+                list.forEach((s, idx) => {
+                    const fav = isFav(s);
+                    const isCurrent = s.stationuuid === currentId;
+                    const isPlaying = isCurrent && isPlayingNow;
+                    const freq = s.frequency || 0;
+                    const freqDisplay = freq ? freq.toFixed(1) + ' MHz' : '—';
+                    const bandDisplay = s.band || 'FM';
+                    const name = s.name || 'Без названия';
+                    const subParts = [];
+                    if (s.country) subParts.push(s.country);
+                    if (s.genre) subParts.push(s.genre);
+                    const sub = subParts.join(' · ') || 'Радио';
+                    html += `
+                        <div class="station-item fade-in" data-uuid="${s.stationuuid || ''}">
+                            <button class="fav-star ${fav ? 'active' : ''}" data-action="fav" data-uuid="${s.stationuuid || ''}" aria-label="Избранное">${fav ? '♥' : '♡'}</button>
+                            <div class="info" data-action="play" data-uuid="${s.stationuuid || ''}">
+                                <div class="name">${name}</div>
+                                <div class="sub">${sub}</div>
+                            </div>
+                            <div class="freq-band">${freqDisplay} ${bandDisplay}</div>
+                            <button class="play-btn ${isPlaying ? 'playing-now' : ''}" data-action="play" data-uuid="${s.stationuuid || ''}" aria-label="Воспроизвести">${isPlaying ? '⏸' : '▶'}</button>
+                        </div>
+                    `;
+                });
+
+                stationList.innerHTML = html;
+
+                stationList.querySelectorAll('.station-item').forEach(item => {
+                    const uuid = item.dataset.uuid;
+                    const station = state.allStations.find(s => s.stationuuid === uuid);
+                    if (!station) return;
+
+                    const playTargets = item.querySelectorAll('[data-action="play"]');
+                    playTargets.forEach(el => {
+                        el.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            if (state.currentStation && state.currentStation.stationuuid === station
+                                .stationuuid && state.isPlaying) {
+                                if (state.audioElement) {
+                                    state.audioElement.pause();
+                                }
+                            } else {
+                                playStation(station);
+                            }
+                        });
+                    });
+
+                    const favStar = item.querySelector('[data-action="fav"]');
+                    if (favStar) {
+                        favStar.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            const added = toggleFav(station);
+                            favStar.textContent = added ? '♥' : '♡';
+                            favStar.classList.toggle('active', added);
+                            renderFavorites();
+                            updateFavBadges();
+                            updateFavButton();
+                        });
+                    }
+                });
+            }
+
+            // ===== FAVORITES RENDER =====
+            function renderFavorites() {
+                const list = state.favorites;
+                if (list.length === 0) {
+                    favsList.innerHTML =
+                        `<div class="favs-empty"><span class="icon">💔</span><span>Нет избранных станций</span><span style="font-size:var(--font-size-xs);opacity:0.5;">Добавьте через поиск</span></div>`;
+                    return;
+                }
+
+                let html = '';
+                const currentId = state.currentStation ? state.currentStation.stationuuid : null;
+                const isPlayingNow = state.isPlaying;
+
+                list.forEach((s, idx) => {
+                    const isCurrent = s.stationuuid === currentId;
+                    const isPlaying = isCurrent && isPlayingNow;
+                    const freq = s.frequency || 0;
+                    const freqDisplay = freq ? freq.toFixed(1) + ' MHz' : '—';
+                    const bandDisplay = s.band || 'FM';
+                    const name = s.name || 'Без названия';
+                    const subParts = [];
+                    if (s.country) subParts.push(s.country);
+                    if (s.genre) subParts.push(s.genre);
+                    const sub = subParts.join(' · ') || 'Радио';
+                    html += `
+                        <div class="station-item fade-in" data-uuid="${s.stationuuid || ''}">
+                            <button class="fav-star active" data-action="fav-remove" data-uuid="${s.stationuuid || ''}" aria-label="Удалить из избранного">♥</button>
+                            <div class="info" data-action="play" data-uuid="${s.stationuuid || ''}">
+                                <div class="name">${name}</div>
+                                <div class="sub">${sub}</div>
+                            </div>
+                            <div class="freq-band">${freqDisplay} ${bandDisplay}</div>
+                            <button class="play-btn ${isPlaying ? 'playing-now' : ''}" data-action="play" data-uuid="${s.stationuuid || ''}" aria-label="Воспроизвести">${isPlaying ? '⏸' : '▶'}</button>
+                        </div>
+                    `;
+                });
+
+                favsList.innerHTML = html;
+
+                favsList.querySelectorAll('.station-item').forEach(item => {
+                    const uuid = item.dataset.uuid;
+                    const station = state.favorites.find(s => s.stationuuid === uuid);
+                    if (!station) return;
+
+                    const playTargets = item.querySelectorAll('[data-action="play"]');
+                    playTargets.forEach(el => {
+                        el.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            if (state.currentStation && state.currentStation.stationuuid === station
+                                .stationuuid && state.isPlaying) {
+                                if (state.audioElement) {
+                                    state.audioElement.pause();
+                                }
+                            } else {
+                                playStation(station);
+                            }
+                        });
+                    });
+
+                    const removeBtn = item.querySelector('[data-action="fav-remove"]');
+                    if (removeBtn) {
+                        removeBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            const idx2 = state.favorites.findIndex(s => s.stationuuid === uuid);
+                            if (idx2 >= 0) {
+                                state.favorites.splice(idx2, 1);
+                                saveFavorites();
+                                renderFavorites();
+                                renderStationList();
+                                updateFavBadges();
+                                updateFavButton();
+                                showToast('Удалено из избранного');
+                            }
+                        });
+                    }
+                });
+            }
+
+            // ===== NAVIGATION =====
+            function goToPage(index) {
+                if (index < 0 || index >= 3) return;
+                state.currentPage = index;
+                pages.style.transform = `translateX(-${index * 100}%)`;
+                tabs.forEach((tab, i) => {
+                    tab.classList.toggle('active', i === index);
+                });
+                setTimeout(adaptLayout, 50);
+            }
+
+            // ===== FILTER EVENTS =====
+            countryFilters.addEventListener('click', (e) => {
+                const chip = e.target.closest('.filter-chip');
+                if (!chip || !chip.dataset.country) return;
+                countryFilters.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+                chip.classList.add('active');
+                state.currentCountry = chip.dataset.country;
+                applyFiltersAndSearch();
+                setTimeout(adaptLayout, 100);
+            });
+
+            bandFilters.addEventListener('click', (e) => {
+                const chip = e.target.closest('.filter-chip');
+                if (!chip || !chip.dataset.band) return;
+                bandFilters.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+                chip.classList.add('active');
+                state.currentBand = chip.dataset.band;
+                applyFiltersAndSearch();
+                setTimeout(adaptLayout, 100);
+            });
+
+            // ===== SEARCH =====
+            let searchTimer = null;
+            searchInput.addEventListener('input', () => {
+                clearTimeout(searchTimer);
+                searchTimer = setTimeout(() => {
+                    state.searchQuery = searchInput.value;
+                    applyFiltersAndSearch();
+                    setTimeout(adaptLayout, 100);
+                }, 300);
+            });
+
+            // ===== TAB CLICKS =====
+            tabs.forEach((tab, i) => {
+                tab.addEventListener('click', () => {
+                    goToPage(i);
+                });
+            });
+
+            // ===== SWIPE NAVIGATION =====
+            let touchStartX = 0;
+            let touchStartY = 0;
+            let touchDeltaX = 0;
+            let touchDeltaY = 0;
+            let isSwiping = false;
+
+            const pagesContainer = document.getElementById('pages');
+
+            pagesContainer.addEventListener('touchstart', (e) => {
+                const t = e.touches[0];
+                touchStartX = t.clientX;
+                touchStartY = t.clientY;
+                touchDeltaX = 0;
+                touchDeltaY = 0;
+                isSwiping = false;
+            }, { passive: true });
+
+            pagesContainer.addEventListener('touchmove', (e) => {
+                const t = e.touches[0];
+                const dx = t.clientX - touchStartX;
+                const dy = t.clientY - touchStartY;
+                touchDeltaX = dx;
+                touchDeltaY = dy;
+
+                if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+                    isSwiping = true;
+                }
+
+                if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 15) {
+                    e.preventDefault();
+                    const offset = -state.currentPage * window.innerWidth + dx;
+                    pages.style.transform = `translateX(${offset}px)`;
+                    pages.style.transition = 'none';
+                }
+            }, { passive: false });
+
+            pagesContainer.addEventListener('touchend', (e) => {
+                if (!isSwiping) {
+                    if (state.currentPage === 0) {
+                        const target = e.target.closest('.ctrl-btn, .player-art, .player-station, .player-freq, .player-band, .player-lang-tag, .player-meta');
+                        if (!target) {
+                            togglePlay();
+                        }
+                    }
+                    return;
+                }
+
+                const threshold = window.innerWidth * 0.25;
+                const dx = touchDeltaX;
+
+                pages.style.transition = 'transform var(--transition)';
+
+                if (dx < -threshold && state.currentPage < 2) {
+                    goToPage(state.currentPage + 1);
+                } else if (dx > threshold && state.currentPage > 0) {
+                    goToPage(state.currentPage - 1);
+                } else {
+                    goToPage(state.currentPage);
+                }
+
+                isSwiping = false;
+                touchDeltaX = 0;
+                touchDeltaY = 0;
+            }, { passive: true });
+
+            // ===== KEYBOARD SHORTCUTS =====
+            document.addEventListener('keydown', (e) => {
+                if (e.key === ' ' || e.key === 'Space') {
+                    e.preventDefault();
+                    togglePlay();
+                }
+                if (e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    nextStation();
+                }
+                if (e.key === 'ArrowLeft') {
+                    e.preventDefault();
+                    prevStation();
+                }
+            });
+
+            // ===== PLAYER CONTROLS =====
+            playBtn.addEventListener('click', togglePlay);
+            prevBtn.addEventListener('click', prevStation);
+            nextBtn.addEventListener('click', nextStation);
+
+            favBtn.addEventListener('click', () => {
+                if (!state.currentStation) {
+                    showToast('Сначала выберите станцию');
+                    return;
+                }
+                const added = toggleFav(state.currentStation);
+                updateFavButton();
+                renderStationList();
+                renderFavorites();
+                updateFavBadges();
+            });
+
+            playerArt.addEventListener('dblclick', togglePlay);
+
+            // ===== REFRESH =====
+            refreshBtn.addEventListener('click', () => {
+                if (state.refreshInProgress) return;
+                fetchStationsFromSources();
+            });
+
+            // ===== PERMISSIONS =====
+            async function requestPermissions() {
+                try {
+                    const ctx = new(window.AudioContext || window.webkitAudioContext)();
+                    if (ctx.state === 'suspended') {
+                        await ctx.resume();
+                    }
+                } catch (_) { /* ignore */ }
+
+                try {
+                    if ('Notification' in window && Notification.permission === 'default') {
+                        await Notification.requestPermission();
+                    }
+                } catch (_) { /* ignore */ }
+
+                state.permissionsGranted = true;
+                permOverlay.classList.remove('show');
+
+                initAudio();
+                loadFavorites();
+
+                // Initial load
+                state.allStations = [...BASE_STATIONS];
+                applyFiltersAndSearch();
+
+                // Then fetch from sources
+                await fetchStationsFromSources();
+
+                // try restore recent
+                try {
+                    const recents = JSON.parse(localStorage.getItem('radio_recent') || '[]');
+                    if (recents.length > 0) {
+                        const last = recents[0];
+                        const found = state.allStations.find(s => s.stationuuid === last.stationuuid);
+                        if (found) {
+                            playStation(found);
+                        } else if (recents.length > 1) {
+                            const found2 = state.allStations.find(s => s.stationuuid === recents[1].stationuuid);
+                            if (found2) playStation(found2);
+                        }
+                    }
+                } catch (_) { /* ignore */ }
+
+                adaptLayout();
+                setTimeout(adaptLayout, 300);
+            }
+
+            permBtn.addEventListener('click', requestPermissions);
+
+            // ===== WINDOW EVENTS =====
+            window.addEventListener('resize', () => {
+                adaptLayout();
+            });
+
+            window.addEventListener('orientationchange', () => {
+                setTimeout(adaptLayout, 400);
+            });
+
+            // ===== INIT =====
+            permOverlay.classList.add('show');
+            loadFavorites();
+            updateFavBadges();
+            setTimeout(adaptLayout, 100);
+
+            document.addEventListener('visibilitychange', () => {
+                // keep playing in background
+            });
+
+            console.log('📻 Radio App ready with extended club/dance stations + auto-refresh');
+
+        })();
+    </script>
+</body>
+</html>
